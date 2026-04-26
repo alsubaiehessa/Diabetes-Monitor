@@ -1,0 +1,1215 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>مراقب السكر | Sugar Monitor</title>
+<meta name="description" content="تطبيق مجاني لمراقبة مستوى السكر في الدم — Free blood sugar monitoring app for diabetes management"/>
+<meta name="keywords" content="مراقبة السكر, سكري, قياس السكر, diabetes, blood sugar, glucose monitor"/>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;900&family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+:root {
+  --bg: #f0f4f8;
+  --card: #ffffff;
+  --primary: #00897b;
+  --primary-dark: #00695c;
+  --primary-light: #e0f2f1;
+  --accent: #26a69a;
+  --danger: #ef5350;
+  --warning: #ffa726;
+  --success: #66bb6a;
+  --text: #1a2e2b;
+  --text-muted: #607d7b;
+  --border: rgba(0,137,123,0.15);
+  --shadow: 0 4px 24px rgba(0,105,92,0.10);
+  --radius: 16px;
+  --font-ar: 'Cairo', sans-serif;
+  --font-en: 'Outfit', sans-serif;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: var(--font-ar);
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  direction: rtl;
+}
+
+body.en { font-family: var(--font-en); direction: ltr; }
+
+/* ── HEADER ── */
+.app-header {
+  background: linear-gradient(135deg, #00695c 0%, #00897b 50%, #26a69a 100%);
+  color: #fff;
+  padding: 1.5rem 1.2rem 1rem;
+  position: relative;
+  overflow: hidden;
+}
+.app-header::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 80% 20%, rgba(255,255,255,0.1) 0%, transparent 60%);
+  pointer-events: none;
+}
+.header-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+  position: relative;
+}
+.app-logo {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+.logo-icon {
+  width: 42px;
+  height: 42px;
+  background: rgba(255,255,255,0.2);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.4rem;
+  backdrop-filter: blur(10px);
+}
+.logo-text { font-size: 1.1rem; font-weight: 700; line-height: 1.2; }
+.logo-sub { font-size: 0.72rem; opacity: 0.8; font-weight: 300; }
+
+.lang-toggle {
+  background: rgba(255,255,255,0.2);
+  border: 1px solid rgba(255,255,255,0.3);
+  color: #fff;
+  padding: 6px 14px;
+  border-radius: 20px;
+  cursor: pointer;
+  font-size: 0.82rem;
+  font-family: var(--font-en);
+  transition: all 0.2s;
+  backdrop-filter: blur(10px);
+}
+.lang-toggle:hover { background: rgba(255,255,255,0.3); }
+
+/* Warning banner */
+.warning-banner {
+  background: rgba(255,167,38,0.25);
+  border: 1px solid rgba(255,167,38,0.5);
+  border-radius: 10px;
+  padding: 0.6rem 0.9rem;
+  font-size: 0.82rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  color: #fff3e0;
+  position: relative;
+}
+.warning-banner .warn-icon { flex-shrink: 0; font-size: 1rem; margin-top: 1px; }
+
+/* ── NAV TABS ── */
+.nav-tabs {
+  background: var(--card);
+  display: flex;
+  border-bottom: 2px solid var(--border);
+  overflow-x: auto;
+  scrollbar-width: none;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+}
+.nav-tabs::-webkit-scrollbar { display: none; }
+.nav-tab {
+  background: none;
+  border: none;
+  border-bottom: 3px solid transparent;
+  padding: 0.9rem 1.3rem;
+  font-family: var(--font-ar);
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-shrink: 0;
+}
+body.en .nav-tab { font-family: var(--font-en); }
+.nav-tab:hover { color: var(--primary); }
+.nav-tab.active {
+  color: var(--primary);
+  border-bottom-color: var(--primary);
+  font-weight: 700;
+}
+.tab-icon { font-size: 1rem; }
+
+/* ── MAIN ── */
+main { max-width: 820px; margin: 0 auto; padding: 1.5rem 1rem 5rem; }
+
+.page { display: none; }
+.page.active { display: block; }
+
+/* ── DASHBOARD ── */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.75rem;
+  margin-bottom: 1.2rem;
+}
+.stat-card {
+  background: var(--card);
+  border-radius: var(--radius);
+  padding: 1rem 0.75rem;
+  text-align: center;
+  box-shadow: var(--shadow);
+  border: 1px solid var(--border);
+  position: relative;
+  overflow: hidden;
+}
+.stat-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+}
+.stat-card.low::before { background: var(--danger); }
+.stat-card.normal::before { background: var(--success); }
+.stat-card.high::before { background: var(--warning); }
+.stat-value {
+  font-size: 1.6rem;
+  font-weight: 900;
+  line-height: 1;
+  margin-bottom: 0.2rem;
+}
+.stat-card.low .stat-value { color: var(--danger); }
+.stat-card.normal .stat-value { color: var(--success); }
+.stat-card.high .stat-value { color: var(--warning); }
+.stat-label { font-size: 0.72rem; color: var(--text-muted); font-weight: 400; }
+
+/* Last reading card */
+.last-reading-card {
+  background: linear-gradient(135deg, var(--primary-dark), var(--primary));
+  border-radius: var(--radius);
+  padding: 1.4rem;
+  color: #fff;
+  margin-bottom: 1.2rem;
+  box-shadow: 0 8px 32px rgba(0,105,92,0.25);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+.last-reading-info h3 { font-size: 0.85rem; opacity: 0.8; font-weight: 400; margin-bottom: 0.3rem; }
+.last-reading-value { font-size: 3rem; font-weight: 900; line-height: 1; }
+.last-reading-value span { font-size: 1rem; font-weight: 400; opacity: 0.7; }
+.last-reading-meta { font-size: 0.78rem; opacity: 0.7; margin-top: 0.3rem; }
+.reading-status-badge {
+  padding: 8px 20px;
+  border-radius: 30px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  background: rgba(255,255,255,0.2);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255,255,255,0.3);
+}
+
+/* Chart card */
+.chart-card {
+  background: var(--card);
+  border-radius: var(--radius);
+  padding: 1.2rem;
+  margin-bottom: 1.2rem;
+  box-shadow: var(--shadow);
+  border: 1px solid var(--border);
+}
+.chart-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.chart-wrap { position: relative; height: 200px; }
+
+/* Range guide */
+.range-guide {
+  background: var(--card);
+  border-radius: var(--radius);
+  padding: 1.2rem;
+  margin-bottom: 1.2rem;
+  box-shadow: var(--shadow);
+  border: 1px solid var(--border);
+}
+.range-title { font-size: 0.95rem; font-weight: 700; margin-bottom: 0.9rem; }
+.range-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.88rem;
+}
+.range-item:last-child { border-bottom: none; }
+.range-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.range-label { flex: 1; font-weight: 600; }
+.range-value { color: var(--text-muted); font-size: 0.82rem; font-family: var(--font-en); }
+
+/* ── ADD READING FORM ── */
+.form-card {
+  background: var(--card);
+  border-radius: var(--radius);
+  padding: 1.4rem;
+  box-shadow: var(--shadow);
+  border: 1px solid var(--border);
+  margin-bottom: 1.2rem;
+}
+.form-title { font-size: 1.1rem; font-weight: 700; margin-bottom: 1.2rem; display: flex; align-items: center; gap: 0.5rem; }
+
+.form-group { margin-bottom: 1rem; }
+.form-label { font-size: 0.85rem; font-weight: 600; color: var(--text-muted); margin-bottom: 0.4rem; display: block; }
+.form-input {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 2px solid var(--border);
+  border-radius: 10px;
+  font-size: 1rem;
+  font-family: var(--font-ar);
+  color: var(--text);
+  background: var(--bg);
+  transition: border-color 0.2s;
+  outline: none;
+}
+body.en .form-input { font-family: var(--font-en); }
+.form-input:focus { border-color: var(--primary); background: #fff; }
+
+.reading-input-wrap {
+  position: relative;
+}
+.reading-unit {
+  position: absolute;
+  top: 50%;
+  left: 1rem;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-family: var(--font-en);
+  pointer-events: none;
+}
+body.en .reading-unit { left: auto; right: 1rem; }
+.reading-input-wrap .form-input {
+  padding-left: 4rem;
+  font-size: 1.2rem;
+  font-weight: 700;
+  font-family: var(--font-en);
+}
+body.en .reading-input-wrap .form-input { padding-left: 1rem; padding-right: 4rem; }
+
+.meal-options {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.5rem;
+}
+.meal-option {
+  padding: 0.6rem;
+  border: 2px solid var(--border);
+  border-radius: 10px;
+  text-align: center;
+  cursor: pointer;
+  font-size: 0.82rem;
+  font-family: var(--font-ar);
+  transition: all 0.2s;
+  background: var(--bg);
+}
+body.en .meal-option { font-family: var(--font-en); }
+.meal-option:hover { border-color: var(--primary); }
+.meal-option.selected { border-color: var(--primary); background: var(--primary-light); color: var(--primary-dark); font-weight: 700; }
+.meal-option .meal-icon { font-size: 1.2rem; display: block; margin-bottom: 2px; }
+
+.notes-input {
+  resize: vertical;
+  min-height: 70px;
+  font-size: 0.9rem;
+}
+
+.submit-btn {
+  width: 100%;
+  padding: 1rem;
+  background: linear-gradient(135deg, var(--primary-dark), var(--primary));
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  font-size: 1.05rem;
+  font-weight: 700;
+  font-family: var(--font-ar);
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 4px 16px rgba(0,105,92,0.3);
+}
+body.en .submit-btn { font-family: var(--font-en); }
+.submit-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,105,92,0.4); }
+.submit-btn:active { transform: translateY(0); }
+
+.reading-preview {
+  background: var(--bg);
+  border-radius: 10px;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  display: none;
+  align-items: center;
+  gap: 0.5rem;
+}
+.reading-preview.show { display: flex; }
+.preview-badge {
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  font-family: var(--font-en);
+}
+
+/* ── HISTORY ── */
+.history-controls {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+.history-filter {
+  padding: 6px 16px;
+  border: 2px solid var(--border);
+  border-radius: 20px;
+  font-size: 0.82rem;
+  font-family: var(--font-ar);
+  cursor: pointer;
+  background: var(--card);
+  color: var(--text-muted);
+  transition: all 0.2s;
+}
+body.en .history-filter { font-family: var(--font-en); }
+.history-filter.active { border-color: var(--primary); color: var(--primary); font-weight: 700; background: var(--primary-light); }
+
+.export-btn {
+  margin-right: auto;
+  padding: 6px 16px;
+  border: 2px solid var(--primary);
+  border-radius: 20px;
+  font-size: 0.82rem;
+  font-family: var(--font-ar);
+  cursor: pointer;
+  background: var(--primary-light);
+  color: var(--primary-dark);
+  font-weight: 700;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+body.en .export-btn { font-family: var(--font-en); margin-right: 0; margin-left: auto; }
+.export-btn:hover { background: var(--primary); color: #fff; }
+
+.reading-list { display: flex; flex-direction: column; gap: 0.6rem; }
+
+.reading-item {
+  background: var(--card);
+  border-radius: 12px;
+  padding: 0.9rem 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  border: 1px solid var(--border);
+  border-right: 4px solid transparent;
+  animation: slideIn 0.3s ease;
+  position: relative;
+}
+body.en .reading-item { border-right: 1px solid var(--border); border-left: 4px solid transparent; }
+.reading-item.low { border-right-color: var(--danger); }
+.reading-item.normal { border-right-color: var(--success); }
+.reading-item.high { border-right-color: var(--warning); }
+body.en .reading-item.low { border-right-color: var(--border); border-left-color: var(--danger); }
+body.en .reading-item.normal { border-right-color: var(--border); border-left-color: var(--success); }
+body.en .reading-item.high { border-right-color: var(--border); border-left-color: var(--warning); }
+
+@keyframes slideIn {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.reading-item-value {
+  font-size: 1.5rem;
+  font-weight: 900;
+  font-family: var(--font-en);
+  min-width: 55px;
+  text-align: center;
+  line-height: 1;
+}
+.reading-item.low .reading-item-value { color: var(--danger); }
+.reading-item.normal .reading-item-value { color: var(--success); }
+.reading-item.high .reading-item-value { color: var(--warning); }
+
+.reading-item-info { flex: 1; }
+.reading-item-meal { font-size: 0.82rem; font-weight: 600; color: var(--text); }
+.reading-item-time { font-size: 0.75rem; color: var(--text-muted); font-family: var(--font-en); margin-top: 2px; }
+.reading-item-notes { font-size: 0.75rem; color: var(--text-muted); margin-top: 3px; font-style: italic; }
+
+.reading-item-badge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 20px;
+  font-family: var(--font-en);
+}
+.badge-low { background: #ffebee; color: var(--danger); }
+.badge-normal { background: #e8f5e9; color: #388e3c; }
+.badge-high { background: #fff3e0; color: #e65100; }
+
+.delete-btn {
+  background: none;
+  border: none;
+  color: #ccc;
+  cursor: pointer;
+  font-size: 1rem;
+  padding: 4px;
+  transition: color 0.2s;
+  flex-shrink: 0;
+}
+.delete-btn:hover { color: var(--danger); }
+
+.empty-state {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: var(--text-muted);
+}
+.empty-state .empty-icon { font-size: 3rem; margin-bottom: 0.75rem; }
+.empty-state p { font-size: 0.95rem; }
+
+/* ── INFO PAGE ── */
+.info-card {
+  background: var(--card);
+  border-radius: var(--radius);
+  margin-bottom: 1rem;
+  overflow: hidden;
+  box-shadow: var(--shadow);
+  border: 1px solid var(--border);
+}
+.info-card-hdr {
+  background: var(--primary);
+  color: #fff;
+  padding: 0.75rem 1.2rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.info-card-body {
+  padding: 1.1rem 1.3rem;
+  font-size: 0.95rem;
+  line-height: 1.9;
+  color: var(--text);
+}
+.info-card-body p { margin-bottom: 0.5rem; }
+.info-card-body p:last-child { margin-bottom: 0; }
+.disclaimer-card {
+  background: #fff3e0;
+  border: 1px solid #ffe0b2;
+  border-radius: var(--radius);
+  padding: 1.1rem 1.3rem;
+  margin-bottom: 1rem;
+  font-size: 0.88rem;
+  color: #bf360c;
+  line-height: 1.8;
+  display: flex;
+  gap: 0.75rem;
+}
+.disclaimer-icon { font-size: 1.5rem; flex-shrink: 0; }
+
+/* ── AD BANNER ── */
+.ad-banner {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: var(--card);
+  border-top: 1px solid var(--border);
+  padding: 6px 12px;
+  text-align: center;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 52px;
+}
+.ad-label {
+  font-size: 0.65rem;
+  color: #aaa;
+  font-family: var(--font-en);
+  border: 1px solid #ddd;
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+
+/* ── MOBILE ── */
+@media(max-width: 480px) {
+  .stats-grid { grid-template-columns: repeat(3, 1fr); }
+  .stat-value { font-size: 1.3rem; }
+  .last-reading-value { font-size: 2.5rem; }
+  main { padding: 1rem 0.75rem 5rem; }
+  .meal-options { grid-template-columns: repeat(2, 1fr); }
+  .nav-tab { padding: 0.8rem 1rem; font-size: 0.82rem; }
+}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="app-header">
+  <div class="header-top">
+    <div class="app-logo">
+      <div class="logo-icon">🩸</div>
+      <div>
+        <div class="logo-text" id="appTitle">مراقب السكر</div>
+        <div class="logo-sub" id="appSubtitle">سجّل قراءاتك يومياً</div>
+      </div>
+    </div>
+    <button class="lang-toggle" onclick="toggleLang()" id="langBtn">EN</button>
+  </div>
+  <div class="warning-banner">
+    <span class="warn-icon">⚠️</span>
+    <span id="warningText">تنبيه: بياناتك محفوظة على جهازك فقط. إغلاق المتصفح قد يؤدي إلى فقدان البيانات. احرص على تصدير قراءاتك بانتظام!</span>
+  </div>
+</header>
+
+<!-- NAV -->
+<nav class="nav-tabs">
+  <button class="nav-tab active" onclick="showTab('dashboard')" id="tab-dashboard">
+    <span class="tab-icon">📊</span>
+    <span class="tab-label" data-ar="الرئيسية" data-en="Dashboard">الرئيسية</span>
+  </button>
+  <button class="nav-tab" onclick="showTab('add')" id="tab-add">
+    <span class="tab-icon">➕</span>
+    <span class="tab-label" data-ar="إضافة قراءة" data-en="Add Reading">إضافة قراءة</span>
+  </button>
+  <button class="nav-tab" onclick="showTab('history')" id="tab-history">
+    <span class="tab-icon">📋</span>
+    <span class="tab-label" data-ar="السجل" data-en="History">السجل</span>
+  </button>
+  <button class="nav-tab" onclick="showTab('info')" id="tab-info">
+    <span class="tab-icon">ℹ️</span>
+    <span class="tab-label" data-ar="معلومات" data-en="Info">معلومات</span>
+  </button>
+</nav>
+
+<main>
+
+<!-- DASHBOARD PAGE -->
+<div class="page active" id="page-dashboard">
+  <div class="last-reading-card" id="lastReadingCard">
+    <div class="last-reading-info">
+      <h3 id="lastReadingLabel">آخر قراءة</h3>
+      <div class="last-reading-value" id="lastReadingValue">-- <span>mg/dL</span></div>
+      <div class="last-reading-meta" id="lastReadingMeta">لا توجد قراءات بعد</div>
+    </div>
+    <div class="reading-status-badge" id="lastReadingStatus">--</div>
+  </div>
+
+  <div class="stats-grid">
+    <div class="stat-card low">
+      <div class="stat-value" id="statLow">0</div>
+      <div class="stat-label" id="statLowLabel">منخفض</div>
+    </div>
+    <div class="stat-card normal">
+      <div class="stat-value" id="statNormal">0</div>
+      <div class="stat-label" id="statNormalLabel">طبيعي</div>
+    </div>
+    <div class="stat-card high">
+      <div class="stat-value" id="statHigh">0</div>
+      <div class="stat-label" id="statHighLabel">مرتفع</div>
+    </div>
+  </div>
+
+  <div class="chart-card">
+    <div class="chart-title">📈 <span id="chartTitle">مستوى السكر - آخر 10 قراءات</span></div>
+    <div class="chart-wrap">
+      <canvas id="sugarChart"></canvas>
+    </div>
+  </div>
+
+  <div class="range-guide">
+    <div class="range-title" id="rangeTitle">🎯 مرجع مستويات السكر</div>
+    <div class="range-item">
+      <div class="range-dot" style="background:var(--danger)"></div>
+      <div class="range-label" id="rangeLow">منخفض</div>
+      <div class="range-value">&lt; 70 mg/dL</div>
+    </div>
+    <div class="range-item">
+      <div class="range-dot" style="background:var(--success)"></div>
+      <div class="range-label" id="rangeNormal">طبيعي (صائم)</div>
+      <div class="range-value">70–99 mg/dL</div>
+    </div>
+    <div class="range-item">
+      <div class="range-dot" style="background:#81c784"></div>
+      <div class="range-label" id="rangeAfterMeal">طبيعي (بعد الأكل)</div>
+      <div class="range-value">70–140 mg/dL</div>
+    </div>
+    <div class="range-item">
+      <div class="range-dot" style="background:var(--warning)"></div>
+      <div class="range-label" id="rangeHigh">مرتفع</div>
+      <div class="range-value">&gt; 140 mg/dL</div>
+    </div>
+    <div class="range-item">
+      <div class="range-dot" style="background:var(--danger)"></div>
+      <div class="range-label" id="rangeDanger">خطر</div>
+      <div class="range-value">&gt; 200 mg/dL</div>
+    </div>
+  </div>
+</div>
+
+<!-- ADD READING PAGE -->
+<div class="page" id="page-add">
+  <div class="form-card">
+    <div class="form-title">🩸 <span id="formTitle">إضافة قراءة جديدة</span></div>
+
+    <div class="form-group">
+      <label class="form-label" id="labelReading">مستوى السكر (mg/dL)</label>
+      <div class="reading-input-wrap">
+        <span class="reading-unit">mg/dL</span>
+        <input type="number" class="form-input" id="readingValue" placeholder="120" min="20" max="600" oninput="previewReading()"/>
+      </div>
+    </div>
+
+    <div class="reading-preview" id="readingPreview">
+      <span id="previewText">القراءة:</span>
+      <span class="preview-badge" id="previewBadge"></span>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label" id="labelMeal">وقت القياس</label>
+      <div class="meal-options">
+        <div class="meal-option selected" data-value="fasting" onclick="selectMeal(this)">
+          <span class="meal-icon">🌅</span>
+          <span data-ar="صائم" data-en="Fasting">صائم</span>
+        </div>
+        <div class="meal-option" data-value="before_meal" onclick="selectMeal(this)">
+          <span class="meal-icon">🍽️</span>
+          <span data-ar="قبل الأكل" data-en="Before Meal">قبل الأكل</span>
+        </div>
+        <div class="meal-option" data-value="after_meal" onclick="selectMeal(this)">
+          <span class="meal-icon">🥘</span>
+          <span data-ar="بعد الأكل" data-en="After Meal">بعد الأكل</span>
+        </div>
+        <div class="meal-option" data-value="bedtime" onclick="selectMeal(this)">
+          <span class="meal-icon">🌙</span>
+          <span data-ar="قبل النوم" data-en="Bedtime">قبل النوم</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label" id="labelDate">التاريخ والوقت</label>
+      <input type="datetime-local" class="form-input" id="readingDate"/>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label" id="labelNotes">ملاحظات (اختياري)</label>
+      <textarea class="form-input notes-input" id="readingNotes" placeholder="مثال: بعد تناول الأرز، شعور بالدوخة..."></textarea>
+    </div>
+
+    <button class="submit-btn" onclick="addReading()" id="submitBtn">✓ حفظ القراءة</button>
+  </div>
+</div>
+
+<!-- HISTORY PAGE -->
+<div class="page" id="page-history">
+  <div class="history-controls">
+    <button class="history-filter active" data-filter="all" onclick="filterHistory(this)" id="filterAll">الكل</button>
+    <button class="history-filter" data-filter="low" onclick="filterHistory(this)" id="filterLow">منخفض</button>
+    <button class="history-filter" data-filter="normal" onclick="filterHistory(this)" id="filterNormal">طبيعي</button>
+    <button class="history-filter" data-filter="high" onclick="filterHistory(this)" id="filterHigh">مرتفع</button>
+    <button class="export-btn" onclick="exportCSV()">
+      <span>📥</span>
+      <span id="exportLabel">تصدير CSV</span>
+    </button>
+  </div>
+  <div class="reading-list" id="readingList">
+    <div class="empty-state">
+      <div class="empty-icon">📋</div>
+      <p id="emptyText">لا توجد قراءات بعد. أضف قراءتك الأولى!</p>
+    </div>
+  </div>
+</div>
+
+<!-- INFO PAGE -->
+<div class="page" id="page-info">
+  <div class="disclaimer-card">
+    <span class="disclaimer-icon">⚕️</span>
+    <div id="disclaimerText">
+      <strong>تنبيه طبي مهم:</strong> هذا التطبيق للمساعدة في تتبع قراءات السكر فقط وليس بديلاً عن الاستشارة الطبية. يُرجى دائماً استشارة طبيبك المختص لتفسير النتائج وتعديل العلاج.
+    </div>
+  </div>
+
+  <div class="disclaimer-card" style="background:#e8f5e9;border-color:#c8e6c9;color:#1b5e20;">
+    <span class="disclaimer-icon">💾</span>
+    <div id="dataWarningText">
+      <strong>تحذير مهم بشأن البيانات:</strong> بياناتك محفوظة على متصفحك فقط (Local Storage). إغلاق المتصفح، مسح بيانات المتصفح، أو تغيير الجهاز سيؤدي إلى فقدان جميع قراءاتك. احرص على تصدير بياناتك بانتظام باستخدام زر "تصدير CSV" في صفحة السجل.
+    </div>
+  </div>
+
+  <div class="info-card">
+    <div class="info-card-hdr">📖 <span id="infoHowTitle">كيفية استخدام التطبيق</span></div>
+    <div class="info-card-body" id="infoHowBody">
+      <p>1️⃣ اضغط على "إضافة قراءة" وأدخل رقم قراءة السكر</p>
+      <p>2️⃣ اختر وقت القياس (صائم، قبل الأكل، بعد الأكل، قبل النوم)</p>
+      <p>3️⃣ أضف ملاحظات إن أردت (مثل نوع الطعام أو الأعراض)</p>
+      <p>4️⃣ احفظ القراءة وتابع تطورك في الرئيسية والسجل</p>
+      <p>5️⃣ صدّر قراءاتك دورياً وشاركها مع طبيبك</p>
+    </div>
+  </div>
+
+  <div class="info-card">
+    <div class="info-card-hdr">🎯 <span id="infoRangeTitle">مستويات السكر المرجعية</span></div>
+    <div class="info-card-body" id="infoRangeBody">
+      <p>🔴 <strong>منخفض (Hypoglycemia):</strong> أقل من 70 mg/dL — يستدعي تناول سكريات فوراً</p>
+      <p>🟢 <strong>طبيعي صائم:</strong> 70–99 mg/dL</p>
+      <p>🟢 <strong>طبيعي بعد الأكل (ساعتان):</strong> أقل من 140 mg/dL</p>
+      <p>🟡 <strong>مرتفع (Pre-diabetes):</strong> 140–199 mg/dL</p>
+      <p>🔴 <strong>مرتفع جداً (Diabetes):</strong> أكثر من 200 mg/dL</p>
+      <p style="margin-top:0.5rem;font-size:0.82rem;color:var(--text-muted);">* هذه أرقام إرشادية عامة. راجع طبيبك للحصول على نطاقك الشخصي.</p>
+    </div>
+  </div>
+
+  <div class="info-card">
+    <div class="info-card-hdr">💡 <span id="infoTipsTitle">نصائح للسيطرة على السكر</span></div>
+    <div class="info-card-body" id="infoTipsBody">
+      <p>✅ قس سكرك في نفس الأوقات يومياً</p>
+      <p>✅ سجّل كل قراءة فور قياسها</p>
+      <p>✅ لاحظ تأثير الطعام والتمارين على قراءاتك</p>
+      <p>✅ راجع طبيبك كل 3 أشهر وأحضر له سجل قراءاتك</p>
+      <p>✅ التزم بالأدوية المقررة في مواعيدها</p>
+    </div>
+  </div>
+</div>
+
+</main>
+
+<!-- AD BANNER -->
+<div class="ad-banner">
+  <span class="ad-label">Ad</span>
+  <span id="adText" style="color:#aaa;font-size:0.78rem;">إعلان — Advertisement</span>
+  <!-- Google AdSense code will go here -->
+</div>
+
+<script>
+// ── DATA ──────────────────────────────────────────────
+var readings = JSON.parse(localStorage.getItem('sugarReadings') || '[]');
+var currentLang = 'ar';
+var currentFilter = 'all';
+var selectedMeal = 'fasting';
+var chart = null;
+
+// ── LANGUAGE ──────────────────────────────────────────
+var T = {
+  ar: {
+    appTitle: 'مراقب السكر',
+    appSubtitle: 'سجّل قراءاتك يومياً',
+    warning: 'تنبيه: بياناتك محفوظة على جهازك فقط. إغلاق المتصفح قد يؤدي إلى فقدان البيانات. احرص على تصدير قراءاتك بانتظام!',
+    lastReadingLabel: 'آخر قراءة',
+    noReadings: 'لا توجد قراءات بعد',
+    statLow: 'منخفض', statNormal: 'طبيعي', statHigh: 'مرتفع',
+    chartTitle: 'مستوى السكر - آخر 10 قراءات',
+    rangeTitle: '🎯 مرجع مستويات السكر',
+    rangeLow: 'منخفض', rangeNormal: 'طبيعي (صائم)', rangeAfterMeal: 'طبيعي (بعد الأكل)', rangeHigh: 'مرتفع', rangeDanger: 'خطر',
+    formTitle: 'إضافة قراءة جديدة',
+    labelReading: 'مستوى السكر (mg/dL)', labelMeal: 'وقت القياس', labelDate: 'التاريخ والوقت', labelNotes: 'ملاحظات (اختياري)',
+    submitBtn: '✓ حفظ القراءة',
+    previewText: 'القراءة:',
+    filterAll: 'الكل', filterLow: 'منخفض', filterNormal: 'طبيعي', filterHigh: 'مرتفع',
+    exportLabel: 'تصدير CSV',
+    emptyText: 'لا توجد قراءات بعد. أضف قراءتك الأولى!',
+    statusLow: 'منخفض 🔴', statusNormal: 'طبيعي 🟢', statusHigh: 'مرتفع 🟡', statusDanger: 'خطر 🔴',
+    mealFasting: 'صائم', mealBefore: 'قبل الأكل', mealAfter: 'بعد الأكل', mealBedtime: 'قبل النوم',
+    langBtn: 'EN',
+    deleteConfirm: 'هل تريد حذف هذه القراءة؟',
+    readingSaved: 'تم حفظ القراءة!',
+    enterReading: 'يرجى إدخال قراءة صحيحة',
+    notesPlaceholder: 'مثال: بعد تناول الأرز، شعور بالدوخة...',
+    infoHowTitle: 'كيفية استخدام التطبيق',
+    infoRangeTitle: 'مستويات السكر المرجعية',
+    infoTipsTitle: 'نصائح للسيطرة على السكر',
+    disclaimerText: '<strong>تنبيه طبي مهم:</strong> هذا التطبيق للمساعدة في تتبع قراءات السكر فقط وليس بديلاً عن الاستشارة الطبية. يُرجى دائماً استشارة طبيبك المختص لتفسير النتائج وتعديل العلاج.',
+    dataWarningText: '<strong>تحذير مهم بشأن البيانات:</strong> بياناتك محفوظة على متصفحك فقط. إغلاق المتصفح أو مسح بيانات المتصفح سيؤدي إلى فقدان قراءاتك. صدّر بياناتك بانتظام!'
+  },
+  en: {
+    appTitle: 'Sugar Monitor',
+    appSubtitle: 'Track your readings daily',
+    warning: '⚠️ Warning: Your data is saved on this device only. Closing the browser may cause data loss. Export your readings regularly!',
+    lastReadingLabel: 'Latest Reading',
+    noReadings: 'No readings yet',
+    statLow: 'Low', statNormal: 'Normal', statHigh: 'High',
+    chartTitle: 'Blood Sugar — Last 10 Readings',
+    rangeTitle: '🎯 Blood Sugar Reference',
+    rangeLow: 'Low', rangeNormal: 'Normal (Fasting)', rangeAfterMeal: 'Normal (After Meal)', rangeHigh: 'High', rangeDanger: 'Danger',
+    formTitle: 'Add New Reading',
+    labelReading: 'Blood Sugar Level (mg/dL)', labelMeal: 'Measurement Time', labelDate: 'Date & Time', labelNotes: 'Notes (optional)',
+    submitBtn: '✓ Save Reading',
+    previewText: 'Reading:',
+    filterAll: 'All', filterLow: 'Low', filterNormal: 'Normal', filterHigh: 'High',
+    exportLabel: 'Export CSV',
+    emptyText: 'No readings yet. Add your first reading!',
+    statusLow: 'Low 🔴', statusNormal: 'Normal 🟢', statusHigh: 'High 🟡', statusDanger: 'Danger 🔴',
+    mealFasting: 'Fasting', mealBefore: 'Before Meal', mealAfter: 'After Meal', mealBedtime: 'Bedtime',
+    langBtn: 'عربي',
+    deleteConfirm: 'Delete this reading?',
+    readingSaved: 'Reading saved!',
+    enterReading: 'Please enter a valid reading',
+    notesPlaceholder: 'e.g. After rice, felt dizzy...',
+    infoHowTitle: 'How to Use the App',
+    infoRangeTitle: 'Blood Sugar Reference Levels',
+    infoTipsTitle: 'Tips for Managing Blood Sugar',
+    disclaimerText: '<strong>Medical Disclaimer:</strong> This app is for tracking purposes only and is not a substitute for medical advice. Always consult your doctor to interpret results and adjust treatment.',
+    dataWarningText: '<strong>Important Data Warning:</strong> Your data is stored in your browser only (Local Storage). Clearing browser data or switching devices will delete all your readings. Export your data regularly!'
+  }
+};
+
+function t(key) { return T[currentLang][key] || key; }
+
+function toggleLang() {
+  currentLang = currentLang === 'ar' ? 'en' : 'ar';
+  document.body.classList.toggle('en', currentLang === 'en');
+  document.documentElement.setAttribute('lang', currentLang);
+  document.documentElement.setAttribute('dir', currentLang === 'ar' ? 'rtl' : 'ltr');
+  document.body.setAttribute('dir', currentLang === 'ar' ? 'rtl' : 'ltr');
+  updateLanguage();
+}
+
+function updateLanguage() {
+  var lang = currentLang;
+  // Update all text
+  document.getElementById('appTitle').textContent = t('appTitle');
+  document.getElementById('appSubtitle').textContent = t('appSubtitle');
+  document.getElementById('warningText').textContent = t('warning');
+  document.getElementById('lastReadingLabel').textContent = t('lastReadingLabel');
+  document.getElementById('statLowLabel').textContent = t('statLow');
+  document.getElementById('statNormalLabel').textContent = t('statNormal');
+  document.getElementById('statHighLabel').textContent = t('statHigh');
+  document.getElementById('chartTitle').textContent = t('chartTitle');
+  document.getElementById('rangeTitle').textContent = t('rangeTitle');
+  document.getElementById('rangeLow').textContent = t('rangeLow');
+  document.getElementById('rangeNormal').textContent = t('rangeNormal');
+  document.getElementById('rangeAfterMeal').textContent = t('rangeAfterMeal');
+  document.getElementById('rangeHigh').textContent = t('rangeHigh');
+  document.getElementById('rangeDanger').textContent = t('rangeDanger');
+  document.getElementById('formTitle').textContent = t('formTitle');
+  document.getElementById('labelReading').textContent = t('labelReading');
+  document.getElementById('labelMeal').textContent = t('labelMeal');
+  document.getElementById('labelDate').textContent = t('labelDate');
+  document.getElementById('labelNotes').textContent = t('labelNotes');
+  document.getElementById('submitBtn').textContent = t('submitBtn');
+  document.getElementById('previewText').textContent = t('previewText');
+  document.getElementById('filterAll').textContent = t('filterAll');
+  document.getElementById('filterLow').textContent = t('filterLow');
+  document.getElementById('filterNormal').textContent = t('filterNormal');
+  document.getElementById('filterHigh').textContent = t('filterHigh');
+  document.getElementById('exportLabel').textContent = t('exportLabel');
+  document.getElementById('langBtn').textContent = t('langBtn');
+  document.getElementById('readingNotes').placeholder = t('notesPlaceholder');
+  document.getElementById('disclaimerText').innerHTML = t('disclaimerText');
+  document.getElementById('dataWarningText').innerHTML = t('dataWarningText');
+  document.getElementById('infoHowTitle').textContent = t('infoHowTitle');
+  document.getElementById('infoRangeTitle').textContent = t('infoRangeTitle');
+  document.getElementById('infoTipsTitle').textContent = t('infoTipsTitle');
+
+  // Update meal options
+  document.querySelectorAll('.meal-option span[data-ar]').forEach(function(el) {
+    el.textContent = el.getAttribute('data-' + lang);
+  });
+  // Update tab labels
+  document.querySelectorAll('.tab-label[data-ar]').forEach(function(el) {
+    el.textContent = el.getAttribute('data-' + lang);
+  });
+
+  renderDashboard();
+  renderHistory();
+}
+
+// ── TABS ──────────────────────────────────────────────
+function showTab(tab) {
+  document.querySelectorAll('.page').forEach(function(p) { p.classList.remove('active'); });
+  document.querySelectorAll('.nav-tab').forEach(function(b) { b.classList.remove('active'); });
+  document.getElementById('page-' + tab).classList.add('active');
+  document.getElementById('tab-' + tab).classList.add('active');
+  if (tab === 'dashboard') renderDashboard();
+  if (tab === 'history') renderHistory();
+}
+
+// ── READING STATUS ─────────────────────────────────────
+function getStatus(val, meal) {
+  val = parseFloat(val);
+  if (val < 70) return 'low';
+  if (meal === 'after_meal') {
+    if (val <= 140) return 'normal';
+    return 'high';
+  }
+  if (val <= 99) return 'normal';
+  if (val <= 139) return 'normal';
+  return 'high';
+}
+
+function getStatusLabel(status, val) {
+  val = parseFloat(val);
+  if (val > 200) return t('statusDanger');
+  if (status === 'low') return t('statusLow');
+  if (status === 'normal') return t('statusNormal');
+  return t('statusHigh');
+}
+
+function getMealLabel(meal) {
+  var map = { fasting: 'mealFasting', before_meal: 'mealBefore', after_meal: 'mealAfter', bedtime: 'mealBedtime' };
+  return t(map[meal] || 'mealFasting');
+}
+
+// ── PREVIEW ───────────────────────────────────────────
+function previewReading() {
+  var val = document.getElementById('readingValue').value;
+  var preview = document.getElementById('readingPreview');
+  var badge = document.getElementById('previewBadge');
+  if (!val || val < 20) { preview.classList.remove('show'); return; }
+  var status = getStatus(val, selectedMeal);
+  preview.classList.add('show');
+  badge.textContent = val + ' mg/dL — ' + getStatusLabel(status, val);
+  badge.className = 'preview-badge badge-' + status;
+}
+
+// ── MEAL SELECTION ────────────────────────────────────
+function selectMeal(el) {
+  document.querySelectorAll('.meal-option').forEach(function(m) { m.classList.remove('selected'); });
+  el.classList.add('selected');
+  selectedMeal = el.getAttribute('data-value');
+  previewReading();
+}
+
+// ── ADD READING ───────────────────────────────────────
+function addReading() {
+  var val = parseFloat(document.getElementById('readingValue').value);
+  if (!val || val < 20 || val > 600) {
+    alert(t('enterReading'));
+    return;
+  }
+  var dateInput = document.getElementById('readingDate').value;
+  var date = dateInput ? new Date(dateInput) : new Date();
+  var notes = document.getElementById('readingNotes').value;
+  var status = getStatus(val, selectedMeal);
+
+  var reading = {
+    id: Date.now(),
+    value: val,
+    meal: selectedMeal,
+    date: date.toISOString(),
+    notes: notes,
+    status: status
+  };
+
+  readings.unshift(reading);
+  localStorage.setItem('sugarReadings', JSON.stringify(readings));
+
+  // Reset form
+  document.getElementById('readingValue').value = '';
+  document.getElementById('readingNotes').value = '';
+  document.getElementById('readingPreview').classList.remove('show');
+
+  alert(t('readingSaved'));
+  showTab('dashboard');
+}
+
+// ── RENDER DASHBOARD ──────────────────────────────────
+function renderDashboard() {
+  var low = readings.filter(function(r) { return r.status === 'low'; }).length;
+  var normal = readings.filter(function(r) { return r.status === 'normal'; }).length;
+  var high = readings.filter(function(r) { return r.status === 'high'; }).length;
+
+  document.getElementById('statLow').textContent = low;
+  document.getElementById('statNormal').textContent = normal;
+  document.getElementById('statHigh').textContent = high;
+
+  if (readings.length > 0) {
+    var last = readings[0];
+    document.getElementById('lastReadingValue').innerHTML = last.value + ' <span>mg/dL</span>';
+    var d = new Date(last.date);
+    document.getElementById('lastReadingMeta').textContent = getMealLabel(last.meal) + ' — ' + d.toLocaleDateString(currentLang === 'ar' ? 'ar-SA' : 'en-US') + ' ' + d.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+    document.getElementById('lastReadingStatus').textContent = getStatusLabel(last.status, last.value);
+    document.getElementById('lastReadingLabel').textContent = t('lastReadingLabel');
+  } else {
+    document.getElementById('lastReadingValue').innerHTML = '-- <span>mg/dL</span>';
+    document.getElementById('lastReadingMeta').textContent = t('noReadings');
+    document.getElementById('lastReadingStatus').textContent = '--';
+  }
+
+  renderChart();
+}
+
+// ── CHART ─────────────────────────────────────────────
+function renderChart() {
+  var last10 = readings.slice(0, 10).reverse();
+  var labels = last10.map(function(r) {
+    var d = new Date(r.date);
+    return d.toLocaleDateString([], {month:'short', day:'numeric'}) + ' ' + d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+  });
+  var values = last10.map(function(r) { return r.value; });
+  var colors = last10.map(function(r) {
+    if (r.status === 'low') return '#ef5350';
+    if (r.status === 'normal') return '#66bb6a';
+    return '#ffa726';
+  });
+
+  var ctx = document.getElementById('sugarChart').getContext('2d');
+  if (chart) { chart.destroy(); }
+
+  chart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: 'mg/dL',
+        data: values,
+        borderColor: '#00897b',
+        backgroundColor: 'rgba(0,137,123,0.08)',
+        pointBackgroundColor: colors,
+        pointBorderColor: colors,
+        pointRadius: 6,
+        pointHoverRadius: 8,
+        borderWidth: 2.5,
+        tension: 0.4,
+        fill: true
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: function(ctx) { return ctx.parsed.y + ' mg/dL'; }
+          }
+        }
+      },
+      scales: {
+        y: {
+          min: 40,
+          grid: { color: 'rgba(0,0,0,0.05)' },
+          ticks: { font: { family: 'Outfit', size: 11 } }
+        },
+        x: {
+          grid: { display: false },
+          ticks: { font: { family: 'Outfit', size: 10 }, maxRotation: 45 }
+        }
+      }
+    }
+  });
+}
+
+// ── RENDER HISTORY ────────────────────────────────────
+function renderHistory() {
+  var list = document.getElementById('readingList');
+  var filtered = currentFilter === 'all' ? readings : readings.filter(function(r) { return r.status === currentFilter; });
+
+  if (filtered.length === 0) {
+    list.innerHTML = '<div class="empty-state"><div class="empty-icon">📋</div><p>' + t('emptyText') + '</p></div>';
+    return;
+  }
+
+  list.innerHTML = filtered.map(function(r) {
+    var d = new Date(r.date);
+    var dateStr = d.toLocaleDateString(currentLang === 'ar' ? 'ar-SA' : 'en-US', {year:'numeric', month:'short', day:'numeric'});
+    var timeStr = d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+    var badgeClass = 'badge-' + r.status;
+    var badgeText = r.value > 200 ? 'Danger' : r.status.charAt(0).toUpperCase() + r.status.slice(1);
+    return '<div class="reading-item ' + r.status + '">' +
+      '<div class="reading-item-value">' + r.value + '</div>' +
+      '<div class="reading-item-info">' +
+        '<div class="reading-item-meal">' + getMealLabel(r.meal) + '</div>' +
+        '<div class="reading-item-time">' + dateStr + ' · ' + timeStr + '</div>' +
+        (r.notes ? '<div class="reading-item-notes">' + r.notes + '</div>' : '') +
+      '</div>' +
+      '<span class="reading-item-badge ' + badgeClass + '">' + badgeText + '</span>' +
+      '<button class="delete-btn" onclick="deleteReading(' + r.id + ')">🗑️</button>' +
+    '</div>';
+  }).join('');
+}
+
+function filterHistory(btn) {
+  document.querySelectorAll('.history-filter').forEach(function(b) { b.classList.remove('active'); });
+  btn.classList.add('active');
+  currentFilter = btn.getAttribute('data-filter');
+  renderHistory();
+}
+
+function deleteReading(id) {
+  if (!confirm(t('deleteConfirm'))) return;
+  readings = readings.filter(function(r) { return r.id !== id; });
+  localStorage.setItem('sugarReadings', JSON.stringify(readings));
+  renderHistory();
+  renderDashboard();
+}
+
+// ── EXPORT CSV ────────────────────────────────────────
+function exportCSV() {
+  if (readings.length === 0) { alert(t('emptyText')); return; }
+  var header = 'Date,Time,Value (mg/dL),Meal Time,Status,Notes\n';
+  var rows = readings.map(function(r) {
+    var d = new Date(r.date);
+    return [
+      d.toLocaleDateString('en-US'),
+      d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}),
+      r.value,
+      r.meal,
+      r.status,
+      '"' + (r.notes || '').replace(/"/g, '""') + '"'
+    ].join(',');
+  }).join('\n');
+
+  var blob = new Blob(['\uFEFF' + header + rows], {type: 'text/csv;charset=utf-8;'});
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = 'sugar-readings-' + new Date().toISOString().slice(0,10) + '.csv';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// ── INIT ──────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', function() {
+  // Set default datetime to now
+  var now = new Date();
+  var local = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
+  document.getElementById('readingDate').value = local.toISOString().slice(0,16);
+  renderDashboard();
+  renderHistory();
+});
+</script>
+
+</body>
+</html>
