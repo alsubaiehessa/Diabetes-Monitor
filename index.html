@@ -36,6 +36,30 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;900&family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, query, orderBy } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDtIpvrZY5zOVpdEy6D1tOUInWvWVwWdU8",
+  authDomain: "sugarlog-374d6.firebaseapp.com",
+  projectId: "sugarlog-374d6",
+  storageBucket: "sugarlog-374d6.firebasestorage.app",
+  messagingSenderId: "830499708740",
+  appId: "1:830499708740:web:ca9f6fb1394b5f6b814111"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+const googleProvider = new GoogleAuthProvider();
+
+window.fbAuth = auth;
+window.fbDb = db;
+window.fbGoogleProvider = googleProvider;
+window.fbFunctions = { createUserWithEmailAndPassword, signInWithEmailAndPassword, signInWithPopup, signOut, onAuthStateChanged, collection, addDoc, getDocs, deleteDoc, doc, query, orderBy };
+</script>
 <style>
 :root{--bg:#f0f4f8;--card:#fff;--primary:#00897b;--primary-dark:#00695c;--primary-light:#e0f2f1;--danger:#ef5350;--warning:#ffa726;--success:#66bb6a;--text:#1a2e2b;--text-muted:#607d7b;--border:rgba(0,137,123,0.15);--shadow:0 4px 24px rgba(0,105,92,0.10);--radius:16px;--font-ar:'Cairo',sans-serif;--font-en:'Outfit',sans-serif}
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -216,6 +240,71 @@ body.en .print-btn{font-family:var(--font-en)}
 </head>
 <body>
 
+<style>
+/* ── AUTH OVERLAY ── */
+.auth-overlay{position:fixed;inset:0;background:linear-gradient(135deg,#00695c,#00897b);z-index:1000;display:flex;align-items:center;justify-content:center;padding:1rem}
+.auth-box{background:#fff;border-radius:20px;padding:2rem 1.5rem;width:100%;max-width:380px;box-shadow:0 20px 60px rgba(0,0,0,0.2)}
+.auth-logo{text-align:center;margin-bottom:1.5rem}
+.auth-logo-icon{font-size:3rem;display:block;margin-bottom:0.5rem}
+.auth-logo-title{font-size:1.3rem;font-weight:900;color:#00695c}
+.auth-logo-sub{font-size:0.82rem;color:#607d7b;margin-top:0.2rem}
+.auth-tabs{display:flex;background:#f0f4f8;border-radius:10px;padding:4px;margin-bottom:1.5rem;gap:4px}
+.auth-tab{flex:1;padding:8px;border:none;border-radius:8px;font-size:0.88rem;font-weight:600;cursor:pointer;transition:all 0.2s;background:none;color:#607d7b;font-family:'Cairo',sans-serif}
+body.en .auth-tab{font-family:'Outfit',sans-serif}
+.auth-tab.active{background:#fff;color:#00695c;box-shadow:0 2px 8px rgba(0,0,0,0.1)}
+.auth-input{width:100%;padding:0.75rem 1rem;border:2px solid #e0f2f1;border-radius:10px;font-size:0.95rem;font-family:'Cairo',sans-serif;color:#1a2e2b;background:#f9fffe;margin-bottom:0.75rem;outline:none;transition:border-color 0.2s}
+body.en .auth-input{font-family:'Outfit',sans-serif}
+.auth-input:focus{border-color:#00897b;background:#fff}
+.auth-btn{width:100%;padding:0.85rem;background:linear-gradient(135deg,#00695c,#00897b);color:#fff;border:none;border-radius:12px;font-size:1rem;font-weight:700;font-family:'Cairo',sans-serif;cursor:pointer;transition:all 0.2s;margin-bottom:0.75rem;box-shadow:0 4px 16px rgba(0,105,92,0.3)}
+body.en .auth-btn{font-family:'Outfit',sans-serif}
+.auth-btn:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(0,105,92,0.4)}
+.auth-divider{text-align:center;color:#aaa;font-size:0.82rem;margin:0.5rem 0;position:relative}
+.auth-divider::before,.auth-divider::after{content:'';position:absolute;top:50%;width:42%;height:1px;background:#eee}
+.auth-divider::before{left:0}.auth-divider::after{right:0}
+.google-btn{width:100%;padding:0.75rem;background:#fff;color:#444;border:2px solid #e0e0e0;border-radius:12px;font-size:0.95rem;font-weight:600;font-family:'Outfit',sans-serif;cursor:pointer;transition:all 0.2s;display:flex;align-items:center;justify-content:center;gap:0.6rem}
+.google-btn:hover{border-color:#00897b;background:#f9fffe}
+.google-icon{width:20px;height:20px}
+.auth-error{background:#ffebee;color:#c62828;border-radius:8px;padding:0.6rem 0.9rem;font-size:0.82rem;margin-bottom:0.75rem;display:none}
+.auth-error.show{display:block}
+.auth-skip{text-align:center;margin-top:0.75rem}
+.auth-skip button{background:none;border:none;color:#607d7b;font-size:0.82rem;cursor:pointer;text-decoration:underline;font-family:'Cairo',sans-serif}
+body.en .auth-skip button{font-family:'Outfit',sans-serif}
+/* ── USER BAR ── */
+.user-bar{background:rgba(0,0,0,0.15);border-radius:10px;padding:0.5rem 0.9rem;display:flex;align-items:center;justify-content:space-between;margin-bottom:0.75rem;font-size:0.82rem}
+.user-bar-name{display:flex;align-items:center;gap:0.5rem;color:#fff;opacity:0.9}
+.user-bar-avatar{width:26px;height:26px;border-radius:50%;background:rgba(255,255,255,0.3);display:flex;align-items:center;justify-content:center;font-size:0.75rem;font-weight:700;color:#fff}
+.signout-btn{background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.3);color:#fff;padding:4px 12px;border-radius:20px;font-size:0.75rem;cursor:pointer;font-family:'Cairo',sans-serif;transition:all 0.2s}
+body.en .signout-btn{font-family:'Outfit',sans-serif}
+.signout-btn:hover{background:rgba(255,255,255,0.3)}
+.cloud-badge{background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.25);color:#fff;padding:3px 10px;border-radius:20px;font-size:0.72rem;display:flex;align-items:center;gap:0.3rem}
+</style>
+
+<!-- AUTH OVERLAY -->
+<div class="auth-overlay" id="authOverlay">
+  <div class="auth-box">
+    <div class="auth-logo">
+      <span class="auth-logo-icon">🩸</span>
+      <div class="auth-logo-title">SugarLog</div>
+      <div class="auth-logo-sub" id="authSubtitle">سجّل قراءاتك يومياً</div>
+    </div>
+    <div class="auth-tabs">
+      <button class="auth-tab active" onclick="switchAuthTab('login')" id="loginTab">تسجيل الدخول</button>
+      <button class="auth-tab" onclick="switchAuthTab('register')" id="registerTab">حساب جديد</button>
+    </div>
+    <div id="authError" class="auth-error"></div>
+    <input type="email" class="auth-input" id="authEmail" placeholder="البريد الإلكتروني"/>
+    <input type="password" class="auth-input" id="authPassword" placeholder="كلمة المرور"/>
+    <input type="password" class="auth-input" id="authConfirm" placeholder="تأكيد كلمة المرور" style="display:none"/>
+    <button class="auth-btn" onclick="handleAuth()" id="authBtn">تسجيل الدخول</button>
+    <div class="auth-divider" id="authDivider">أو</div>
+    <button class="google-btn" onclick="handleGoogleAuth()">
+      <svg class="google-icon" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+      <span id="googleBtnText">المتابعة بحساب Google</span>
+    </button>
+    <div class="auth-skip"><button onclick="skipAuth()" id="skipBtn">المتابعة بدون حساب</button></div>
+  </div>
+</div>
+
 <header class="app-header">
   <div class="header-top">
     <div class="app-logo">
@@ -228,6 +317,16 @@ body.en .print-btn{font-family:var(--font-en)}
     </div>
   </div>
   <div class="warning-banner"><span>⚠️</span><span id="warningText">⚠️ تنبيه: بياناتك محفوظة على جهازك فقط — لا تُحذف عند إغلاق التطبيق، لكن احرص على تصديرها بانتظام!</span></div>
+  <div class="user-bar" id="userBar" style="display:none">
+    <div class="user-bar-name">
+      <div class="user-bar-avatar" id="userAvatar">؟</div>
+      <span id="userEmail">--</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:0.5rem">
+      <div class="cloud-badge">☁️ <span id="cloudLabel">محفوظ</span></div>
+      <button class="signout-btn" onclick="handleSignOut()" id="signOutBtn">خروج</button>
+    </div>
+  </div>
 </header>
 
 <nav class="nav-tabs">
@@ -443,8 +542,8 @@ function updateRangeGuide(){
 }
 
 var T={
-  ar:{appTitle:'مراقب السكر',appSubtitle:'سجّل قراءاتك يومياً',warning:'⚠️ تنبيه: بياناتك محفوظة على جهازك فقط — احرص على تصديرها بانتظام!',lastReadingLabel:'آخر قراءة',noReadings:'لا توجد قراءات بعد',statLow:'منخفض',statNormal:'طبيعي',statHigh:'مرتفع',chartTitle:'السكر - آخر القراءات',rangeTitle:'🎯 مرجع مستويات السكر',rangeLow:'منخفض',rangeNormal:'طبيعي (صائم)',rangeAfterMeal:'طبيعي (بعد الأكل)',rangeHigh:'مرتفع',rangeDanger:'خطر',formTitle:'إضافة قراءة جديدة',labelReading:'مستوى السكر',labelMeal:'وقت القياس',labelDate:'التاريخ والوقت',labelNotes:'ملاحظات (اختياري)',submitBtn:'✓ حفظ القراءة',previewText:'القراءة:',filterAll:'الكل',filterLow:'منخفض',filterNormal:'طبيعي',filterHigh:'مرتفع',emptyText:'لا توجد قراءات بعد. أضف قراءتك الأولى!',statusLow:'منخفض 🔴',statusNormal:'طبيعي 🟢',statusHigh:'مرتفع 🟡',statusDanger:'خطر 🔴',mealFasting:'صائم',mealBefore:'قبل الأكل',mealAfter:'بعد الأكل',mealBedtime:'قبل النوم',langBtn:'EN',deleteConfirm:'هل تريد حذف هذه القراءة؟',readingSaved:'تم حفظ القراءة!',enterReading:'يرجى إدخال قراءة صحيحة',notesPlaceholder:'مثال: بعد تناول الأرز، شعور بالدوخة...',hba1cLabel:'تقدير HbA1c',hba1cLabelStats:'تقدير HbA1c',hba1cSub:'بناءً على المتوسط',statAvgLbl:'متوسط السكر',statCountLbl:'عدد القراءات',statMinLbl:'أدنى قراءة',statMaxLbl:'أعلى قراءة',tirTitle:'⏱️ الوقت في النطاق الطبيعي',reminderTitle:'🔔 تذكيرات القياس',rem1Lbl:'الصباح',rem2Lbl:'الظهر',rem3Lbl:'المساء',notifPermBtn:'🔔 تفعيل الإشعارات',reportTitle:'🏥 تقرير طبي',reportChartTitle:'مخطط القراءات',rAvgLbl:'المتوسط',rMinLbl:'الأدنى',rMaxLbl:'الأعلى',rCountLbl:'القراءات',rTIRLbl:'في النطاق',printBtnLbl:'طباعة / حفظ PDF',p7:'7 أيام',p30:'30 يوم',p90:'90 يوم',pAll:'الكل',rOpt7:'7 أيام',rOpt30:'30 يوم',rOpt90:'90 يوم',rOpt0:'كل القراءات',infoHowTitle:'كيفية استخدام التطبيق',infoRangeTitle:'مستويات السكر المرجعية',infoTipsTitle:'نصائح للسيطرة على السكر',infoA1CTitle:'ما هو HbA1c؟',disclaimerText:'<strong>تنبيه طبي مهم:</strong> هذا التطبيق للمساعدة في تتبع قراءات السكر فقط وليس بديلاً عن الاستشارة الطبية.',dataWarningText:'<strong>تحذير بشأن البيانات:</strong> بياناتك محفوظة على متصفحك فقط. احرص على تصدير قراءاتك بانتظام.',infoHowBody:'<p>1️⃣ اضغط "إضافة" وأدخل رقم قراءة السكر</p><p>2️⃣ اختر وقت القياس وأضف ملاحظات اختيارية</p><p>3️⃣ تابع إحصاءاتك وتقديرات HbA1c في صفحة "إحصاءات"</p><p>4️⃣ فعّل التذكيرات لقياس السكر بانتظام</p><p>5️⃣ أنشئ تقريراً طبياً وشاركه مع طبيبك</p>',infoRangeBody:'<p>🔴 <strong>منخفض:</strong> أقل من 70 mg/dL — يستدعي تناول سكريات فوراً</p><p>🟢 <strong>طبيعي صائم:</strong> 70–99 mg/dL</p><p>🟢 <strong>طبيعي بعد الأكل:</strong> أقل من 140 mg/dL</p><p>🟡 <strong>مرتفع:</strong> 140–199 mg/dL</p><p>🔴 <strong>خطر:</strong> أكثر من 200 mg/dL</p>',infoA1CBody:'<p>HbA1c يقيس متوسط السكر خلال 2-3 أشهر.</p><p>🟢 <strong>طبيعي:</strong> أقل من 5.7%</p><p>🟡 <strong>ما قبل السكري:</strong> 5.7%–6.4%</p><p>🔴 <strong>سكري:</strong> 6.5% أو أكثر</p><p style="font-size:0.82rem;color:var(--text-muted);margin-top:0.5rem">* التقدير تقريبي. راجع طبيبك للاختبار الفعلي.</p>',infoTipsBody:'<p>✅ قس سكرك في نفس الأوقات يومياً</p><p>✅ سجّل كل قراءة فور قياسها</p><p>✅ لاحظ تأثير الطعام والتمارين على قراءاتك</p><p>✅ راجع طبيبك كل 3 أشهر وأحضر له تقرير التطبيق</p><p>✅ التزم بالأدوية المقررة في مواعيدها</p>',a1cNormal:'طبيعي',a1cPre:'ما قبل السكري',a1cDiabetes:'سكري',noData:'لا توجد بيانات كافية',notifMsg:'وقت قياس السكر!',notifBody:'لا تنسَ قياس مستوى السكر في الدم.',cfAll:'كل'},
-  en:{appTitle:'Sugar Monitor',appSubtitle:'Track your readings daily',warning:'⚠️ Your data is saved on this device only. Export your readings regularly!',lastReadingLabel:'Latest Reading',noReadings:'No readings yet',statLow:'Low',statNormal:'Normal',statHigh:'High',chartTitle:'Blood Sugar — Latest Readings',rangeTitle:'🎯 Blood Sugar Reference',rangeLow:'Low',rangeNormal:'Normal (Fasting)',rangeAfterMeal:'Normal (After Meal)',rangeHigh:'High',rangeDanger:'Danger',formTitle:'Add New Reading',labelReading:'Blood Sugar Level',labelMeal:'Measurement Time',labelDate:'Date & Time',labelNotes:'Notes (optional)',submitBtn:'✓ Save Reading',previewText:'Reading:',filterAll:'All',filterLow:'Low',filterNormal:'Normal',filterHigh:'High',emptyText:'No readings yet. Add your first!',statusLow:'Low 🔴',statusNormal:'Normal 🟢',statusHigh:'High 🟡',statusDanger:'Danger 🔴',mealFasting:'Fasting',mealBefore:'Before Meal',mealAfter:'After Meal',mealBedtime:'Bedtime',langBtn:'عربي',deleteConfirm:'Delete this reading?',readingSaved:'Reading saved!',enterReading:'Please enter a valid reading',notesPlaceholder:'e.g. After rice, felt dizzy...',hba1cLabel:'Estimated HbA1c',hba1cLabelStats:'Estimated HbA1c',hba1cSub:'Based on average readings',statAvgLbl:'Average Sugar',statCountLbl:'Total Readings',statMinLbl:'Lowest Reading',statMaxLbl:'Highest Reading',tirTitle:'⏱️ Time In Range',reminderTitle:'🔔 Measurement Reminders',rem1Lbl:'Morning',rem2Lbl:'Afternoon',rem3Lbl:'Evening',notifPermBtn:'🔔 Enable Notifications',reportTitle:'🏥 Doctor Report',reportChartTitle:'Readings Chart',rAvgLbl:'Average',rMinLbl:'Lowest',rMaxLbl:'Highest',rCountLbl:'Readings',rTIRLbl:'In Range',printBtnLbl:'Print / Save as PDF',p7:'7 Days',p30:'30 Days',p90:'90 Days',pAll:'All',rOpt7:'7 Days',rOpt30:'30 Days',rOpt90:'90 Days',rOpt0:'All Readings',infoHowTitle:'How to Use the App',infoRangeTitle:'Blood Sugar Reference Levels',infoTipsTitle:'Tips for Managing Blood Sugar',infoA1CTitle:'What is HbA1c?',disclaimerText:'<strong>Medical Disclaimer:</strong> This app is for tracking purposes only and is not a substitute for medical advice.',dataWarningText:'<strong>Data Warning:</strong> Your data is stored in your browser only. Export your data regularly!',infoHowBody:'<p>1️⃣ Tap "Add" and enter your blood sugar reading</p><p>2️⃣ Choose measurement time and add optional notes</p><p>3️⃣ Track your stats and HbA1c estimates in the "Stats" tab</p><p>4️⃣ Enable reminders to measure regularly</p><p>5️⃣ Generate a doctor report and share it with your physician</p>',infoRangeBody:'<p>🔴 <strong>Low:</strong> Below 70 mg/dL — eat fast-acting sugar immediately</p><p>🟢 <strong>Normal (Fasting):</strong> 70–99 mg/dL</p><p>🟢 <strong>Normal (After Meal):</strong> Below 140 mg/dL</p><p>🟡 <strong>High:</strong> 140–199 mg/dL</p><p>🔴 <strong>Danger:</strong> Above 200 mg/dL</p>',infoA1CBody:'<p>HbA1c measures your average blood sugar over 2-3 months.</p><p>🟢 <strong>Normal:</strong> Below 5.7%</p><p>🟡 <strong>Pre-diabetes:</strong> 5.7%–6.4%</p><p>🔴 <strong>Diabetes:</strong> 6.5% or above</p><p style="font-size:0.82rem;color:var(--text-muted);margin-top:0.5rem">* The estimate in this app is approximate. See your doctor for the actual test.</p>',infoTipsBody:'<p>✅ Measure your blood sugar at the same times daily</p><p>✅ Log every reading right after measuring</p><p>✅ Notice how food and exercise affect your readings</p><p>✅ See your doctor every 3 months and bring the app report</p><p>✅ Take your medications on time</p>',a1cNormal:'Normal',a1cPre:'Pre-diabetes',a1cDiabetes:'Diabetes',noData:'Not enough data',notifMsg:'Time to check blood sugar!',notifBody:"Don't forget to measure your blood glucose.",cfAll:'All'}
+  ar:{appTitle:'مراقب السكر',appSubtitle:'سجّل قراءاتك يومياً',warning:'⚠️ بياناتك محفوظة على السحابة بأمان!',lastReadingLabel:'آخر قراءة',noReadings:'لا توجد قراءات بعد',statLow:'منخفض',statNormal:'طبيعي',statHigh:'مرتفع',chartTitle:'السكر - آخر القراءات',rangeTitle:'🎯 مرجع مستويات السكر',rangeLow:'منخفض',rangeNormal:'طبيعي (صائم)',rangeAfterMeal:'طبيعي (بعد الأكل)',rangeHigh:'مرتفع',rangeDanger:'خطر',formTitle:'إضافة قراءة جديدة',labelReading:'مستوى السكر',labelMeal:'وقت القياس',labelDate:'التاريخ والوقت',labelNotes:'ملاحظات (اختياري)',submitBtn:'✓ حفظ القراءة',previewText:'القراءة:',filterAll:'الكل',filterLow:'منخفض',filterNormal:'طبيعي',filterHigh:'مرتفع',emptyText:'لا توجد قراءات بعد. أضف قراءتك الأولى!',statusLow:'منخفض 🔴',statusNormal:'طبيعي 🟢',statusHigh:'مرتفع 🟡',statusDanger:'خطر 🔴',mealFasting:'صائم',mealBefore:'قبل الأكل',mealAfter:'بعد الأكل',mealBedtime:'قبل النوم',langBtn:'EN',deleteConfirm:'هل تريد حذف هذه القراءة؟',readingSaved:'تم حفظ القراءة!',enterReading:'يرجى إدخال قراءة صحيحة',notesPlaceholder:'مثال: بعد تناول الأرز، شعور بالدوخة...',hba1cLabel:'تقدير HbA1c',hba1cLabelStats:'تقدير HbA1c',hba1cSub:'بناءً على المتوسط',statAvgLbl:'متوسط السكر',statCountLbl:'عدد القراءات',statMinLbl:'أدنى قراءة',statMaxLbl:'أعلى قراءة',tirTitle:'⏱️ الوقت في النطاق الطبيعي',reminderTitle:'🔔 تذكيرات القياس',rem1Lbl:'الصباح',rem2Lbl:'الظهر',rem3Lbl:'المساء',notifPermBtn:'🔔 تفعيل الإشعارات',reportTitle:'🏥 تقرير طبي',reportChartTitle:'مخطط القراءات',rAvgLbl:'المتوسط',rMinLbl:'الأدنى',rMaxLbl:'الأعلى',rCountLbl:'القراءات',rTIRLbl:'في النطاق',printBtnLbl:'طباعة / حفظ PDF',p7:'7 أيام',p30:'30 يوم',p90:'90 يوم',pAll:'الكل',rOpt7:'7 أيام',rOpt30:'30 يوم',rOpt90:'90 يوم',rOpt0:'كل القراءات',infoHowTitle:'كيفية استخدام التطبيق',infoRangeTitle:'مستويات السكر المرجعية',infoTipsTitle:'نصائح للسيطرة على السكر',infoA1CTitle:'ما هو HbA1c؟',disclaimerText:'<strong>تنبيه طبي مهم:</strong> هذا التطبيق للمساعدة في تتبع قراءات السكر فقط وليس بديلاً عن الاستشارة الطبية.',dataWarningText:'<strong>تحذير بشأن البيانات:</strong> بياناتك محفوظة على متصفحك فقط. احرص على تصدير قراءاتك بانتظام.',infoHowBody:'<p>1️⃣ اضغط "إضافة" وأدخل رقم قراءة السكر</p><p>2️⃣ اختر وقت القياس وأضف ملاحظات اختيارية</p><p>3️⃣ تابع إحصاءاتك وتقديرات HbA1c في صفحة "إحصاءات"</p><p>4️⃣ فعّل التذكيرات لقياس السكر بانتظام</p><p>5️⃣ أنشئ تقريراً طبياً وشاركه مع طبيبك</p>',infoRangeBody:'<p>🔴 <strong>منخفض:</strong> أقل من 70 mg/dL — يستدعي تناول سكريات فوراً</p><p>🟢 <strong>طبيعي صائم:</strong> 70–99 mg/dL</p><p>🟢 <strong>طبيعي بعد الأكل:</strong> أقل من 140 mg/dL</p><p>🟡 <strong>مرتفع:</strong> 140–199 mg/dL</p><p>🔴 <strong>خطر:</strong> أكثر من 200 mg/dL</p>',infoA1CBody:'<p>HbA1c يقيس متوسط السكر خلال 2-3 أشهر.</p><p>🟢 <strong>طبيعي:</strong> أقل من 5.7%</p><p>🟡 <strong>ما قبل السكري:</strong> 5.7%–6.4%</p><p>🔴 <strong>سكري:</strong> 6.5% أو أكثر</p><p style="font-size:0.82rem;color:var(--text-muted);margin-top:0.5rem">* التقدير تقريبي. راجع طبيبك للاختبار الفعلي.</p>',infoTipsBody:'<p>✅ قس سكرك في نفس الأوقات يومياً</p><p>✅ سجّل كل قراءة فور قياسها</p><p>✅ لاحظ تأثير الطعام والتمارين على قراءاتك</p><p>✅ راجع طبيبك كل 3 أشهر وأحضر له تقرير التطبيق</p><p>✅ التزم بالأدوية المقررة في مواعيدها</p>',a1cNormal:'طبيعي',a1cPre:'ما قبل السكري',a1cDiabetes:'سكري',noData:'لا توجد بيانات كافية',notifMsg:'وقت قياس السكر!',notifBody:'لا تنسَ قياس مستوى السكر في الدم.',cfAll:'كل',loginBtn:'تسجيل الدخول',registerBtn:'إنشاء حساب',authFillAll:'يرجى ملء جميع الحقول',authPassMismatch:'كلمات المرور غير متطابقة',authInvalidCred:'البريد الإلكتروني أو كلمة المرور غير صحيحة',authEmailUsed:'هذا البريد الإلكتروني مستخدم بالفعل',authWeakPass:'كلمة المرور ضعيفة جداً (6 أحرف على الأقل)',authInvalidEmail:'البريد الإلكتروني غير صالح',signOutBtn:'خروج',cloudLabel:'محفوظ',googleBtnText:'المتابعة بحساب Google',skipBtnText:'المتابعة بدون حساب'},
+  en:{appTitle:'Sugar Monitor',appSubtitle:'Track your readings daily',warning:'⚠️ Your data is securely saved to the cloud!',lastReadingLabel:'Latest Reading',noReadings:'No readings yet',statLow:'Low',statNormal:'Normal',statHigh:'High',chartTitle:'Blood Sugar — Latest Readings',rangeTitle:'🎯 Blood Sugar Reference',rangeLow:'Low',rangeNormal:'Normal (Fasting)',rangeAfterMeal:'Normal (After Meal)',rangeHigh:'High',rangeDanger:'Danger',formTitle:'Add New Reading',labelReading:'Blood Sugar Level',labelMeal:'Measurement Time',labelDate:'Date & Time',labelNotes:'Notes (optional)',submitBtn:'✓ Save Reading',previewText:'Reading:',filterAll:'All',filterLow:'Low',filterNormal:'Normal',filterHigh:'High',emptyText:'No readings yet. Add your first!',statusLow:'Low 🔴',statusNormal:'Normal 🟢',statusHigh:'High 🟡',statusDanger:'Danger 🔴',mealFasting:'Fasting',mealBefore:'Before Meal',mealAfter:'After Meal',mealBedtime:'Bedtime',langBtn:'عربي',deleteConfirm:'Delete this reading?',readingSaved:'Reading saved!',enterReading:'Please enter a valid reading',notesPlaceholder:'e.g. After rice, felt dizzy...',hba1cLabel:'Estimated HbA1c',hba1cLabelStats:'Estimated HbA1c',hba1cSub:'Based on average readings',statAvgLbl:'Average Sugar',statCountLbl:'Total Readings',statMinLbl:'Lowest Reading',statMaxLbl:'Highest Reading',tirTitle:'⏱️ Time In Range',reminderTitle:'🔔 Measurement Reminders',rem1Lbl:'Morning',rem2Lbl:'Afternoon',rem3Lbl:'Evening',notifPermBtn:'🔔 Enable Notifications',reportTitle:'🏥 Doctor Report',reportChartTitle:'Readings Chart',rAvgLbl:'Average',rMinLbl:'Lowest',rMaxLbl:'Highest',rCountLbl:'Readings',rTIRLbl:'In Range',printBtnLbl:'Print / Save as PDF',p7:'7 Days',p30:'30 Days',p90:'90 Days',pAll:'All',rOpt7:'7 Days',rOpt30:'30 Days',rOpt90:'90 Days',rOpt0:'All Readings',infoHowTitle:'How to Use the App',infoRangeTitle:'Blood Sugar Reference Levels',infoTipsTitle:'Tips for Managing Blood Sugar',infoA1CTitle:'What is HbA1c?',disclaimerText:'<strong>Medical Disclaimer:</strong> This app is for tracking purposes only and is not a substitute for medical advice.',dataWarningText:'<strong>Data Warning:</strong> Your data is stored in your browser only. Export your data regularly!',infoHowBody:'<p>1️⃣ Tap "Add" and enter your blood sugar reading</p><p>2️⃣ Choose measurement time and add optional notes</p><p>3️⃣ Track your stats and HbA1c estimates in the "Stats" tab</p><p>4️⃣ Enable reminders to measure regularly</p><p>5️⃣ Generate a doctor report and share it with your physician</p>',infoRangeBody:'<p>🔴 <strong>Low:</strong> Below 70 mg/dL — eat fast-acting sugar immediately</p><p>🟢 <strong>Normal (Fasting):</strong> 70–99 mg/dL</p><p>🟢 <strong>Normal (After Meal):</strong> Below 140 mg/dL</p><p>🟡 <strong>High:</strong> 140–199 mg/dL</p><p>🔴 <strong>Danger:</strong> Above 200 mg/dL</p>',infoA1CBody:'<p>HbA1c measures your average blood sugar over 2-3 months.</p><p>🟢 <strong>Normal:</strong> Below 5.7%</p><p>🟡 <strong>Pre-diabetes:</strong> 5.7%–6.4%</p><p>🔴 <strong>Diabetes:</strong> 6.5% or above</p><p style="font-size:0.82rem;color:var(--text-muted);margin-top:0.5rem">* The estimate in this app is approximate. See your doctor for the actual test.</p>',infoTipsBody:'<p>✅ Measure your blood sugar at the same times daily</p><p>✅ Log every reading right after measuring</p><p>✅ Notice how food and exercise affect your readings</p><p>✅ See your doctor every 3 months and bring the app report</p><p>✅ Take your medications on time</p>',a1cNormal:'Normal',a1cPre:'Pre-diabetes',a1cDiabetes:'Diabetes',noData:'Not enough data',notifMsg:'Time to check blood sugar!',notifBody:"Don't forget to measure your blood glucose.",cfAll:'All',loginBtn:'Sign In',registerBtn:'Create Account',authFillAll:'Please fill in all fields',authPassMismatch:'Passwords do not match',authInvalidCred:'Incorrect email or password',authEmailUsed:'This email is already in use',authWeakPass:'Password is too weak (min 6 characters)',authInvalidEmail:'Invalid email address',signOutBtn:'Sign Out',cloudLabel:'Saved',googleBtnText:'Continue with Google',skipBtnText:'Continue without account'}
 };
 function t(k){return T[currentLang][k]||k}
 
@@ -489,6 +588,15 @@ function updateLanguage(){
   // Dynamic elements
   document.querySelectorAll('.meal-option span[data-ar]').forEach(function(el){el.textContent=el.getAttribute('data-'+L)});
   document.querySelectorAll('.tab-label[data-ar]').forEach(function(el){el.textContent=el.getAttribute('data-'+L)});
+  // Auth UI
+  document.getElementById('loginTab').textContent=t('loginBtn');
+  document.getElementById('registerTab').textContent=t('registerBtn');
+  document.getElementById('authBtn').textContent=authMode==='login'?t('loginBtn'):t('registerBtn');
+  document.getElementById('googleBtnText').textContent=t('googleBtnText');
+  document.getElementById('skipBtn').textContent=t('skipBtnText');
+  document.getElementById('authSubtitle').textContent=t('appSubtitle');
+  document.getElementById('signOutBtn').textContent=t('signOutBtn');
+  document.getElementById('cloudLabel').textContent=t('cloudLabel');
   updateRangeGuide();renderDashboard();renderHistory();renderStats();renderReport();
 }
 
@@ -551,8 +659,10 @@ function addReading(){
   var date=dateInput?new Date(dateInput):new Date();
   var notes=document.getElementById('readingNotes').value;
   var status=getStatus(mg,selectedMeal);
-  readings.unshift({id:Date.now(),value:mg,meal:selectedMeal,date:date.toISOString(),notes:notes,status:status});
+  var reading={id:Date.now(),value:mg,meal:selectedMeal,date:date.toISOString(),notes:notes,status:status};
+  readings.unshift(reading);
   localStorage.setItem('sugarReadings',JSON.stringify(readings));
+  if(currentUser) saveReadingToFirestore(reading);
   document.getElementById('readingValue').value='';
   document.getElementById('readingNotes').value='';
   document.getElementById('readingPreview').classList.remove('show');
@@ -674,6 +784,8 @@ function filterHistory(btn){
 }
 function deleteReading(id){
   if(!confirm(t('deleteConfirm')))return;
+  var reading = readings.find(function(r){return r.id===id});
+  if(reading && reading.firestoreId) deleteReadingFromFirestore(reading.firestoreId);
   readings=readings.filter(function(r){return r.id!==id});
   localStorage.setItem('sugarReadings',JSON.stringify(readings));
   renderHistory();renderDashboard();
@@ -760,7 +872,109 @@ function scheduleReminders(){
   });
 }
 
-document.addEventListener('DOMContentLoaded',function(){
+// ── AUTH ──────────────────────────────────────────────
+var currentUser = null;
+var authMode = 'login';
+
+function switchAuthTab(mode) {
+  authMode = mode;
+  document.getElementById('loginTab').classList.toggle('active', mode==='login');
+  document.getElementById('registerTab').classList.toggle('active', mode==='register');
+  document.getElementById('authConfirm').style.display = mode==='register'?'block':'none';
+  document.getElementById('authBtn').textContent = mode==='login'?t('loginBtn'):t('registerBtn');
+  document.getElementById('authError').classList.remove('show');
+}
+
+function handleAuth() {
+  var email = document.getElementById('authEmail').value.trim();
+  var password = document.getElementById('authPassword').value;
+  var confirm = document.getElementById('authConfirm').value;
+  var errEl = document.getElementById('authError');
+  errEl.classList.remove('show');
+  if (!email || !password) { errEl.textContent = t('authFillAll'); errEl.classList.add('show'); return; }
+  if (authMode==='register' && password !== confirm) { errEl.textContent = t('authPassMismatch'); errEl.classList.add('show'); return; }
+  var fn = window.fbFunctions;
+  var auth = window.fbAuth;
+  var promise = authMode==='login'
+    ? fn.signInWithEmailAndPassword(auth, email, password)
+    : fn.createUserWithEmailAndPassword(auth, email, password);
+  promise.catch(function(err) {
+    var msg = err.code==='auth/user-not-found'||err.code==='auth/wrong-password'||err.code==='auth/invalid-credential' ? t('authInvalidCred') :
+              err.code==='auth/email-already-in-use' ? t('authEmailUsed') :
+              err.code==='auth/weak-password' ? t('authWeakPass') :
+              err.code==='auth/invalid-email' ? t('authInvalidEmail') : err.message;
+    errEl.textContent = msg; errEl.classList.add('show');
+  });
+}
+
+function handleGoogleAuth() {
+  var fn = window.fbFunctions;
+  fn.signInWithPopup(window.fbAuth, window.fbGoogleProvider).catch(function(err) {
+    var errEl = document.getElementById('authError');
+    errEl.textContent = err.message; errEl.classList.add('show');
+  });
+}
+
+function skipAuth() {
+  document.getElementById('authOverlay').style.display = 'none';
+  document.getElementById('warningText').textContent = t('warning');
+  document.getElementById('userBar').style.display = 'none';
+}
+
+function handleSignOut() {
+  window.fbFunctions.signOut(window.fbAuth).then(function() {
+    currentUser = null;
+    readings = JSON.parse(localStorage.getItem('sugarReadings')||'[]');
+    document.getElementById('authOverlay').style.display = 'flex';
+    document.getElementById('userBar').style.display = 'none';
+    renderDashboard(); renderHistory();
+  });
+}
+
+function onUserSignedIn(user) {
+  currentUser = user;
+  document.getElementById('authOverlay').style.display = 'none';
+  document.getElementById('userBar').style.display = 'flex';
+  var name = user.displayName || user.email;
+  document.getElementById('userEmail').textContent = name.length>22?name.slice(0,22)+'...':name;
+  document.getElementById('userAvatar').textContent = (user.displayName||user.email)[0].toUpperCase();
+  document.getElementById('signOutBtn').textContent = t('signOutBtn');
+  document.getElementById('cloudLabel').textContent = t('cloudLabel');
+  loadReadingsFromFirestore();
+}
+
+function loadReadingsFromFirestore() {
+  if (!currentUser) return;
+  var fn = window.fbFunctions;
+  var db = window.fbDb;
+  var q = fn.query(fn.collection(db,'users',currentUser.uid,'readings'), fn.orderBy('date','desc'));
+  fn.getDocs(q).then(function(snap) {
+    readings = snap.docs.map(function(d) { return Object.assign({firestoreId:d.id}, d.data()); });
+    renderDashboard(); renderHistory(); renderStats(); renderReport();
+  });
+}
+
+function saveReadingToFirestore(reading) {
+  if (!currentUser) return;
+  var fn = window.fbFunctions;
+  var db = window.fbDb;
+  fn.addDoc(fn.collection(db,'users',currentUser.uid,'readings'), reading).then(function(docRef) {
+    readings[0].firestoreId = docRef.id;
+    localStorage.setItem('sugarReadings', JSON.stringify(readings));
+  });
+}
+
+function deleteReadingFromFirestore(firestoreId) {
+  if (!currentUser || !firestoreId) return;
+  var fn = window.fbFunctions;
+  var db = window.fbDb;
+  fn.deleteDoc(fn.doc(db,'users',currentUser.uid,'readings',firestoreId));
+}
+
+// Override addReading to also save to Firestore
+var _originalAddReading = null;
+
+document.addEventListener('DOMContentLoaded', function() {
   var now=new Date();
   var local=new Date(now.getTime()-now.getTimezoneOffset()*60000);
   document.getElementById('readingDate').value=local.toISOString().slice(0,16);
@@ -774,6 +988,14 @@ document.addEventListener('DOMContentLoaded',function(){
     scheduleReminders();
     document.getElementById('notifPermBtn').textContent='✅ '+(currentLang==='ar'?'تم تفعيل الإشعارات':'Notifications Enabled');
   }
+  // Wait for Firebase to initialize then set up auth listener
+  setTimeout(function() {
+    if (window.fbFunctions && window.fbAuth) {
+      window.fbFunctions.onAuthStateChanged(window.fbAuth, function(user) {
+        if (user) { onUserSignedIn(user); }
+      });
+    }
+  }, 800);
 });
 </script>
 </body>
